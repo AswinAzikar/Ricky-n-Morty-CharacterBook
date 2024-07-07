@@ -17,6 +17,8 @@ class CharacterRepository {
           name: characterJson['name'],
           imageUrl: characterJson['image'],
           species: characterJson['species'],
+          status: characterJson['status'],
+          gender: characterJson['gender'],
         );
       }).toList();
     } else {
