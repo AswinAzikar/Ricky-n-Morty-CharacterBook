@@ -25,4 +25,19 @@ class CharacterRepository {
       throw Exception('Failed to fetch characters');
     }
   }
+
+  Future<List<String>> fetchDistinctStatusOptions() async {
+    final characters = await fetchCharacters();
+    return characters.map((character) => character.status).toSet().toList();
+  }
+
+  Future<List<String>> fetchDistinctSpeciesOptions() async {
+    final characters = await fetchCharacters();
+    return characters.map((character) => character.species).toSet().toList();
+  }
+
+  Future<List<String>> fetchDistinctGenderOptions() async {
+    final characters = await fetchCharacters();
+    return characters.map((character) => character.gender).toSet().toList();
+  }
 }

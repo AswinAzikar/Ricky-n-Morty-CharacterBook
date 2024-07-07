@@ -1,7 +1,10 @@
-// lib/presentation/pages/home_page.dart
 import 'package:flutter/material.dart';
-import 'package:new_app/data/models/character_model.dart';
-import 'package:new_app/data/repository/character_repository.dart';
+import 'package:new_app/presentation/constants/constColors.dart';
+
+import 'data/models/character_model.dart';
+import 'data/models/filter_options.dart';
+import 'data/repository/character_repository.dart';
+import 'presentation/widgets/filer_popup.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -15,11 +18,13 @@ class _HomePageState extends State<HomePage> {
   List<Character> characters = [];
   List<Character> filteredCharacters = [];
   final TextEditingController _searchController = TextEditingController();
+  FilterOptions? filterOptions;
 
   @override
   void initState() {
     super.initState();
     fetchCharacters();
+    fetchFilterOptions();
   }
 
   @override
@@ -58,8 +63,12 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.filter_list),
-                onPressed: fetchCharacters,
+                icon: const Icon(Icons.filter_alt_rounded),
+                onPressed: () {
+                  if (filterOptions != null) {
+                    _showFilterDialog();
+                  }
+                },
               ),
             ],
           ),
@@ -71,7 +80,7 @@ class _HomePageState extends State<HomePage> {
             )
           : filteredCharacters.isEmpty
               ? Center(
-                  child: Text('This person does not exist'),
+                  child: Text('No results found'),
                 )
               : RefreshIndicator(
                   onRefresh: fetchCharacters,
@@ -85,8 +94,8 @@ class _HomePageState extends State<HomePage> {
                           child: Image.network(character.imageUrl),
                         ),
                         tileColor: index % 2 == 0
-                            ? const Color.fromARGB(255, 210, 231, 249)
-                            : const Color.fromARGB(255, 212, 235, 213),
+                            ? AppColors.offPrimary
+                            : AppColors.offSecondary,
                         title: Text(character.name),
                         subtitle: Text(character.species),
                       );
@@ -109,6 +118,27 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> fetchFilterOptions() async {
+    try {
+      final distinctStatusOptions =
+          await _characterRepository.fetchDistinctStatusOptions();
+      final distinctSpeciesOptions =
+          await _characterRepository.fetchDistinctSpeciesOptions();
+      final distinctGenderOptions =
+          await _characterRepository.fetchDistinctGenderOptions();
+      setState(() {
+        filterOptions = FilterOptions(
+          statusOptions: distinctStatusOptions,
+          speciesOptions: distinctSpeciesOptions,
+          genderOptions: distinctGenderOptions,
+        );
+      });
+    } catch (e) {
+      // Handle errors
+      print('Error fetching filter options: $e');
+    }
+  }
+
   void filterCharacters(String query) {
     setState(() {
       if (query.isEmpty) {
@@ -119,6 +149,34 @@ class _HomePageState extends State<HomePage> {
           return name.contains(query);
         }).toList();
       }
+    });
+  }
+
+  void _showFilterDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return FilterPopup(
+          filterOptions: filterOptions!,
+          onFiltersSelected: (selectedFilters) {
+            applyFilters(selectedFilters);
+          },
+        );
+      },
+    );
+  }
+
+  void applyFilters(Map<String, List<String>> selectedFilters) {
+    setState(() {
+      filteredCharacters = characters.where((character) {
+        bool statusMatches = selectedFilters['status'] == null ||
+            selectedFilters['status']!.contains(character.status);
+        bool speciesMatches = selectedFilters['species'] == null ||
+            selectedFilters['species']!.contains(character.species);
+        bool genderMatches = selectedFilters['gender'] == null ||
+            selectedFilters['gender']!.contains(character.gender);
+        return statusMatches && speciesMatches && genderMatches;
+      }).toList();
     });
   }
 }
