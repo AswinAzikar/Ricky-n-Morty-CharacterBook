@@ -1,24 +1,25 @@
-import 'dart:convert';
+// lib/presentation/pages/home_page.dart
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:new_app/data/models/character_model.dart';
+import 'package:new_app/data/repository/character_repository.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  const HomePage({Key? key}) : super(key: key);
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  _HomePageState createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  List<dynamic> characters = [];
-  List<dynamic> filteredCharacters = [];
-
+  final CharacterRepository _characterRepository = CharacterRepository();
+  List<Character> characters = [];
+  List<Character> filteredCharacters = [];
   final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    fetchUser();
+    fetchCharacters();
   }
 
   @override
@@ -58,9 +59,7 @@ class _HomePageState extends State<HomePage> {
               ),
               IconButton(
                 icon: const Icon(Icons.refresh_rounded),
-                onPressed: () {
-                  fetchUser();
-                },
+                onPressed: fetchCharacters,
               ),
             ],
           ),
@@ -70,60 +69,56 @@ class _HomePageState extends State<HomePage> {
           ? const Center(
               child: CircularProgressIndicator(),
             )
-          : ListView.builder(
-              itemCount: filteredCharacters.length,
-              itemBuilder: (ctx, index) {
-                final character = filteredCharacters[index];
-                final name = character['name'];
-                final imageUrl = character['image'];
-                final species = character['species'];
-                return ListTile(
-                  leading: ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Image.network(imageUrl),
+          : filteredCharacters.isEmpty
+              ? Center(
+                  child: Text('This person does not exist'),
+                )
+              : RefreshIndicator(
+                  onRefresh: fetchCharacters,
+                  child: ListView.builder(
+                    itemCount: filteredCharacters.length,
+                    itemBuilder: (ctx, index) {
+                      final character = filteredCharacters[index];
+                      return ListTile(
+                        leading: ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.network(character.imageUrl),
+                        ),
+                        tileColor: index % 2 == 0
+                            ? const Color.fromARGB(255, 210, 231, 249)
+                            : const Color.fromARGB(255, 212, 235, 213),
+                        title: Text(character.name),
+                        subtitle: Text(character.species),
+                      );
+                    },
                   ),
-                  tileColor: index % 2 == 0
-                      ? const Color.fromARGB(255, 210, 231, 249)
-                      : const Color.fromARGB(255, 212, 235, 213),
-                  title: Text(name),
-                  subtitle: Text(species),
-                );
-              },
-            ),
+                ),
     );
   }
 
-  void fetchUser() async {
-    const String url = 'https://rickandmortyapi.com/api/character';
-    final uri = Uri.parse(url);
-    final response = await http.get(uri);
-    final body = response.body;
-    final json = jsonDecode(body);
-
-    if (response.statusCode == 200) {
-      final body = response.body;
-      final json = jsonDecode(body);
+  Future<void> fetchCharacters() async {
+    try {
+      final fetchedCharacters = await _characterRepository.fetchCharacters();
       setState(() {
-        characters = json['results'];
-        filteredCharacters = characters; // Initialize with all characters
+        characters = fetchedCharacters;
+        filterCharacters(_searchController.text.toLowerCase());
       });
-    } else {
-      print('Failed to fetch characters: ${response.statusCode}');
+    } catch (e) {
+      // Handle errors
+      print('Error fetching characters: $e');
     }
   }
 
   void filterCharacters(String query) {
-    if (query.isEmpty) {
-      setState(() {
+    setState(() {
+      if (query.isEmpty) {
         filteredCharacters = characters;
-      });
-    } else {
-      setState(() {
+      } else {
         filteredCharacters = characters.where((character) {
-          final name = character['name'].toString().toLowerCase();
+          final name = character.name.toLowerCase();
           return name.contains(query);
         }).toList();
-      });
-    }
+      }
+    });
   }
 }
