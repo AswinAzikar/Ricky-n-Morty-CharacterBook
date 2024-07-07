@@ -11,6 +11,8 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   List<dynamic> characters = [];
+  List<dynamic> filteredCharacters = [];
+
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -37,6 +39,9 @@ class _HomePageState extends State<HomePage> {
                   width: 0.8 * scrnwdth,
                   child: TextField(
                     controller: _searchController,
+                    onChanged: (value) {
+                      filterCharacters(value.toLowerCase());
+                    },
                     decoration: InputDecoration(
                       hintText: 'Search the character',
                       filled: true,
@@ -45,13 +50,14 @@ class _HomePageState extends State<HomePage> {
                         borderRadius: BorderRadius.circular(8.0),
                         borderSide: BorderSide.none,
                       ),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 16.0),
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 16.0),
                     ),
                   ),
                 ),
               ),
               IconButton(
-                icon: Icon(Icons.refresh_rounded),
+                icon: const Icon(Icons.refresh_rounded),
                 onPressed: () {
                   fetchUser();
                 },
@@ -60,26 +66,30 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
       ),
-      body: ListView.builder(
-        itemCount: characters.length,
-        itemBuilder: (ctx, index) {
-          final character = characters[index];
-          final name = character['name'];
-          final imageUrl = character['image'];
-          final species = character['species'];
-          return ListTile(
-            leading: ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: Image.network(imageUrl),
+      body: characters.isEmpty
+          ? const Center(
+              child: CircularProgressIndicator(),
+            )
+          : ListView.builder(
+              itemCount: filteredCharacters.length,
+              itemBuilder: (ctx, index) {
+                final character = filteredCharacters[index];
+                final name = character['name'];
+                final imageUrl = character['image'];
+                final species = character['species'];
+                return ListTile(
+                  leading: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.network(imageUrl),
+                  ),
+                  tileColor: index % 2 == 0
+                      ? const Color.fromARGB(255, 210, 231, 249)
+                      : const Color.fromARGB(255, 212, 235, 213),
+                  title: Text(name),
+                  subtitle: Text(species),
+                );
+              },
             ),
-            tileColor: index % 2 == 0
-                ? Color.fromARGB(255, 210, 231, 249)
-                : Color.fromARGB(255, 212, 235, 213),
-            title: Text(name),
-            subtitle: Text(species),
-          );
-        },
-      ),
     );
   }
 
@@ -90,8 +100,30 @@ class _HomePageState extends State<HomePage> {
     final body = response.body;
     final json = jsonDecode(body);
 
-    setState(() {
-      characters = json['results'];
-    });
+    if (response.statusCode == 200) {
+      final body = response.body;
+      final json = jsonDecode(body);
+      setState(() {
+        characters = json['results'];
+        filteredCharacters = characters; // Initialize with all characters
+      });
+    } else {
+      print('Failed to fetch characters: ${response.statusCode}');
+    }
+  }
+
+  void filterCharacters(String query) {
+    if (query.isEmpty) {
+      setState(() {
+        filteredCharacters = characters;
+      });
+    } else {
+      setState(() {
+        filteredCharacters = characters.where((character) {
+          final name = character['name'].toString().toLowerCase();
+          return name.contains(query);
+        }).toList();
+      });
+    }
   }
 }
